@@ -30,7 +30,7 @@
     </div>
     </div>
     <div v-else-if="afterLoading">
-      <div v-if="!this.pressTime"> Hold spacebar</div>
+      <div v-if="!this.pressTime"> {{pressing ?'release when ready': 'Hold spacebar'}}</div>
       <v-btn v-else @click="startWaiting()">Submit</v-btn>
     </div>
     <div v-else-if="done">
@@ -75,6 +75,7 @@
       },
       currentPercentage: 0,
       pressTime: 0,
+      pressing: false,
       done: false
     }),
 
@@ -98,7 +99,7 @@
         this.loading = true
         
         this.currentResult = {
-          real: Math.round(5000+Math.random()*MAX_TIME),
+          real: Math.round(3000+Math.random()*MAX_TIME),
           indicator: indicators.shift(),
           guess: null
         }
@@ -112,6 +113,7 @@
       },
 
       startAfterLoading() {
+        this.pressing = false
         this.pressTime = 0
         this.loading =false
         this.afterLoading = true
@@ -147,11 +149,13 @@
       },
     processKeyDown() {
       if (!start) {
+          this.pressing = true
           start = (new Date()).getTime();
       }
     },
 
     processKeyUp() {
+      this.pressing = false
     var delta = (new Date()).getTime() - start;
     this.pressTime = delta
     start = 0;
