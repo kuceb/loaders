@@ -22,10 +22,12 @@
       </div> 
       <div v-else-if="currentResult.indicator.complexity==='complex'">
         <img src="../assets/pig.gif"/>
-      </div> 
+      </div>
+      <div align-center> 
       <v-subheader v-if="currentResult.indicator.determinant">
-          {{currentTimeLeft/100}}%
+          {{Math.round(currentPercentage)}}%
       </v-subheader>
+    </div>
     </div>
     <div v-else-if="afterLoading">
       <div v-if="!this.pressTime"> Hold spacebar</div>
@@ -42,12 +44,12 @@
 <script>
   import * as _ from "lodash";
   const complexityTypes = ['none', 'simple', 'moderate', 'complex']
-  const MAX_TIME = 1000
+  const MAX_TIME = 5000
 
   const indicators = _.shuffle(_.flatten(
     _.map(complexityTypes, (v) => [
     {complexity:v, determinant:true},
-    {complexity:v, determinant:true}
+    {complexity:v, determinant:false}
     ])
   ))
   console.log(indicators)
@@ -71,7 +73,7 @@
         }
         //null
       },
-      currentTimeLeft: null,
+      currentPercentage: 0,
       pressTime: 0,
       done: false
     }),
@@ -87,18 +89,20 @@
 
     methods: {
       countUp() {
-          this.currentTimeLeft = Math.round(this.currentTimeLeft + this.currentTimeLeft % 99);
+        console.log('count up')
+          this.currentPercentage = (this.currentPercentage + 10000/(this.currentResult.real||1));
+          console.log(this.currentPercentage)
       },
       startLoading() {
         this.waiting = false
         this.loading = true
         
         this.currentResult = {
-          real: Math.round(1000+Math.random()*MAX_TIME),
+          real: Math.round(5000+Math.random()*MAX_TIME),
           indicator: indicators.shift(),
           guess: null
         }
-        this.currentTimeLeft = this.currentResult.real
+        this.currentPercentage = 0
 
         
 
@@ -141,13 +145,13 @@
               })
       })
       },
-    processKeyDown(e) {
+    processKeyDown() {
       if (!start) {
           start = (new Date()).getTime();
       }
     },
 
-    processKeyUp(e) {
+    processKeyUp() {
     var delta = (new Date()).getTime() - start;
     this.pressTime = delta
     start = 0;
