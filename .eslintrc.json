@@ -1,0 +1,26 @@
+{
+	"root": true,
+	"env": {
+			"browser": true,
+			"es6": true,
+			"node": true
+	},
+	 "parserOptions": {
+			 "parser": "babel-eslint"
+	 },
+	"extends": [
+			"airbnb-base",
+			"plugin:vue/recommended"
+	],
+	"plugins": [
+		"only-warn"
+	],
+	"rules": {
+			"semi": ["error", "never"],
+			"import/prefer-default-export": ["off"],
+			"no-alert": ["off"],
+			"prefer-destructuring": ["error", {"array":false}],
+			"max-len": "off",
+			"no-return-assign": "off"
+	}
+}
