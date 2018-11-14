@@ -30,7 +30,7 @@
                 title
                 font-weight-light
               >
-                <p>Welcome to the Psycode experiment. Before we being, here's a survey.</p><p>
+                <p>Welcome to the Psycode experiment. Before we begin, here's a survey.</p><p>
                   Your results will be anonymized.</p>
               </v-flex>
               <v-btn
