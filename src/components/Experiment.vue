@@ -9,8 +9,11 @@
         v-if="waiting"
         key="waiting"
       >
+        <template>
+          <v-progress-linear v-model="experimentProgress" />
+        </template>
         click to continue to the next loader.<br>
-        <v-btn @click="startLoading()">Continue</v-btn>
+        <v-btn @click="startLoading()">Load</v-btn>
       </div>
       <div
         v-else-if="loading"
@@ -94,12 +97,6 @@ const complexityTypes = ['none', 'simple', 'moderate', 'complex']
 const MIN_TIME = 2000
 const MAX_TIME = 4000
 
-const indicators = _.shuffle(_.flatten(
-  _.map(complexityTypes, v => [
-    { complexity: v, determinant: false },
-    { complexity: v, determinant: true },
-  ]),
-))
 
 let start = 0
 
@@ -124,10 +121,21 @@ export default {
       },
       // null
     },
+    indicators: _.shuffle(_.flatten(
+      _.map(complexityTypes, v => [
+        { complexity: v, determinant: false },
+        { complexity: v, determinant: true },
+      ]),
+    )),
     currentPercentage: 0,
     pressTime: 0,
     pressing: false,
   }),
+  computed: {
+    experimentProgress() {
+      return (8 - this.indicators.length) / 8 * 100
+    },
+  },
 
   mounted() {
     window.addEventListener('keydown', this.processKeyDown)
@@ -144,7 +152,7 @@ export default {
 
       this.currentResult = {
         real: Math.round(MIN_TIME + Math.random() * (MAX_TIME - MIN_TIME)),
-        indicator: indicators.shift(),
+        indicator: this.indicators.shift(),
         guess: null,
       }
       this.currentPercentage = 0
@@ -170,7 +178,7 @@ export default {
       this.afterLoading = false
       this.waiting = true
 
-      if (!indicators.length) {
+      if (!this.indicators.length) {
         this.endExperiment()
       }
     },
@@ -236,6 +244,6 @@ export default {
 }
 
 .no-anim {
-  transition: 0s
+  transition: 0s;
 }
 </style>
