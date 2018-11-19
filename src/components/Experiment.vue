@@ -6,7 +6,7 @@
   >
     <v-slide-y-transition mode="out-in">
       <div
-        v-if="waiting"
+        v-if="screen===SCREEN.WAITING"
         key="waiting"
       >
         <template>
@@ -15,41 +15,22 @@
         click to continue to the next loader.<br>
         <v-btn @click="startLoading()">Load</v-btn>
       </div>
-      <div
-        v-else-if="loading"
+
+      <DemoLoader
+        v-else-if="screen===SCREEN.LOADING && id === 'demo'"
         class="no-anim"
-      >
-        <div v-if="currentResult.indicator.complexity==='none'">
-          loading...
-        </div>
-        <div v-else-if="currentResult.indicator.complexity==='simple'">
-          <div class="ball">
-            <div />
-          </div>
-        </div>
-        <div v-else-if="currentResult.indicator.complexity==='moderate'">
-          <div class="ball">
-            <div />
-            <div />
-            <div />
-          </div>
-        </div>
-        <div v-else-if="currentResult.indicator.complexity==='complex'">
-          <img src="../assets/pig.gif">
-        </div>
-
-        <v-flex
-          v-if="currentResult.indicator.determinant"
-          class="headline"
-          mt-4
-        >
-          {{ Math.round(currentPercentage) }}%
-        </v-flex>
-
-      </div>
+        :indicator="currentResult.indicator"
+        :current-percentage="currentPercentage"
+      />
+      <Loader
+        v-else-if="screen===SCREEN.LOADING"
+        class="no-anim"
+        :indicator="currentResult.indicator"
+        :current-percentage="currentPercentage"
+      />
       <div
-        v-else-if="afterLoading"
-        key="afterLoading"
+        v-else-if="screen === SCREEN.GUESSING"
+        key="guessing"
       >
         <v-scale-transition mode="out-in">
           <div
@@ -66,7 +47,13 @@
               key="2"
             >Release when ready</span>
             <!-- </v-fade-transition> -->
-
+            <div
+              :class="{
+                spacebar: true,
+                down: pressing,
+                'mt-3': true,
+              }"
+            />
           </div>
           <div
             v-else
@@ -80,9 +67,8 @@
               @click="startWaiting()"
             >Submit</v-btn>
           </div>
-        </v-scale-transition>
-      </div>
-      <div v-else-if="done">
+      </v-scale-transition></div>
+      <div v-else-if="screen === SCREEN.DONE">
         Done!<br> You may close this window.
       </div>
 
@@ -92,16 +78,41 @@
 
 <script>
 import * as _ from 'lodash'
+import { mapState, mapMutations } from 'vuex'
+import { ADD_RESULT, SCREEN_EXPERIMENT as SCREEN, NEXT_SCREEN } from '../store'
+
+import Loader from './Loader'
+import DemoLoader from './DemoLoader'
+
+
+const MIN_TIME = 4000
+const MAX_TIME = 8000
+const PERCENTAGE_UPDATE_RATE = 5
+
+function increment(currentVal, totalTime) {
+  return Math.min(currentVal + (PERCENTAGE_UPDATE_RATE * 100) / (totalTime || 1), 99)
+}
 
 const complexityTypes = ['none', 'simple', 'moderate', 'complex']
-const MIN_TIME = 2000
-const MAX_TIME = 4000
+const experimentIndicators = _.shuffle(
+  _.flatten(
+    _.map(complexityTypes, v => [
+      { complexity: v, determinant: true },
+      { complexity: v, determinant: false },
+    ]),
+  ),
+)
 
-
-let start = 0
-
+const demoIndicators = [
+  { complexity: 'demo1', determinant: true },
+  { complexity: 'demo2', determinant: false },
+]
 
 export default {
+  components: {
+    Loader,
+    DemoLoader,
+  },
   props: {
     id: {
       type: String,
@@ -109,83 +120,87 @@ export default {
     },
   },
   data: () => ({
-    waiting: true,
-    loading: false,
-    afterLoading: false,
-    done: false,
-    results: [],
+    startPress: 0,
+    SCREEN,
     currentResult: {
       indicator: {
         complexity: 'moderate',
         determinant: true,
       },
-      // null
     },
-    indicators: _.shuffle(_.flatten(
-      _.map(complexityTypes, v => [
-        { complexity: v, determinant: false },
-        { complexity: v, determinant: true },
-      ]),
-    )),
+    indicators: experimentIndicators,
     currentPercentage: 0,
     pressTime: 0,
     pressing: false,
+    index: 0,
   }),
   computed: {
     experimentProgress() {
-      return (8 - this.indicators.length) / 8 * 100
+      return (this.results.length) / this.indicators.length * 100
     },
+    ...mapState('experiment', {
+      results: state => state.results,
+      screen: state => state.screen,
+      demo: state => state.demo,
+    }),
+
   },
 
   mounted() {
     window.addEventListener('keydown', this.processKeyDown)
     window.addEventListener('keyup', this.processKeyUp)
+    if (this.id === 'demo') {
+      this.indicators = demoIndicators
+    }
   },
 
   methods: {
-    countUp() {
-      this.currentPercentage = Math.min(this.currentPercentage + 5000 / (this.currentResult.real || 1), 99)
-    },
+
     startLoading() {
-      this.waiting = false
-      this.loading = true
+      this[NEXT_SCREEN](SCREEN.LOADING)
 
       this.currentResult = {
         real: Math.round(MIN_TIME + Math.random() * (MAX_TIME - MIN_TIME)),
-        indicator: this.indicators.shift(),
+        indicator: this.indicators[this.index++],
         guess: null,
       }
       this.currentPercentage = 0
-      const timer = setInterval(this.countUp, 50)// Call increaseMyVar every 30ms
-
+      const timer = setInterval(() => this.currentPercentage = increment(this.currentPercentage, this.currentResult.real), PERCENTAGE_UPDATE_RATE)
 
       setTimeout(() => {
         clearInterval(timer)
-        this.startAfterLoading()
+        this.startguessing()
       }, this.currentResult.real)
     },
 
-    startAfterLoading() {
+    startguessing() {
       this.pressing = false
       this.pressTime = 0
-      this.loading = false
-      this.afterLoading = true
+      this[NEXT_SCREEN](SCREEN.GUESSING)
     },
 
     startWaiting() {
       this.currentResult.guess = this.pressTime
-      this.results.push(_.cloneDeep(this.currentResult))
-      this.afterLoading = false
-      this.waiting = true
+      this[ADD_RESULT](_.cloneDeep(this.currentResult))
+      this[NEXT_SCREEN](SCREEN.WAITING)
+      if (this.index === this.indicators.length) {
+        if (this.id === 'demo') {
+          this.endDemo()
+        } else {
+          this.endExperiment()
+        }
 
-      if (!this.indicators.length) {
-        this.endExperiment()
       }
     },
 
+    async endDemo() {
+      this.$store.commit('experiment/CLEAR_RESULTS')
+      this.$store.commit(`app/${NEXT_SCREEN}`, 'info')
+      this.$store.commit('app/DEMO_COMPLETE')
+    },
+
     async endExperiment() {
-      this.waiting = false
-      this.done = true
+      this[NEXT_SCREEN](SCREEN.DONE)
       await fetch('https://psycode-375bf.firebaseio.com/data.json', {
         method: 'POST',
         headers: {
@@ -197,53 +212,43 @@ export default {
         }),
       })
     },
-    processKeyDown() {
-      if (!start) {
-        this.pressing = true
-        start = (new Date()).getTime()
+    processKeyDown(e) {
+      if (e.keyCode === 32) {
+        if (!this.startPress) {
+          this.pressing = true
+          this.startPress = (new Date()).getTime()
+        }
       }
     },
 
-    processKeyUp() {
-      this.pressing = false
-      const delta = (new Date()).getTime() - start
-      this.pressTime = delta
-      start = 0
+    processKeyUp(e) {
+      if (e.keyCode === 32) {
+        this.pressing = false
+        const delta = (new Date()).getTime() - this.startPress
+        this.pressTime = delta
+        this.startPress = 0
+      }
     },
-
+    ...mapMutations('experiment', [
+      ADD_RESULT,
+      NEXT_SCREEN,
+    ]),
   },
 }
 </script>
 
 <style>
-.ball div {
-  display: inline-block;
-  border-radius: 50%;
-  height: 30px;
-  width: 30px;
-  margin: 10px;
-  animation: bounce 1.2s infinite 0.2s;
+.spacebar {
+  content: 'space';
+  margin: 0 auto;
+  border: 1px solid rgb(211, 211, 211);
+  width: 100px;
+  height: 20px;
+  border-radius: 2px;
+  box-shadow: 0 4px 4px rgb(87, 87, 87);
+  transition: all 0.1s;
 }
-.ball div:nth-child(1) {
-  background-color: salmon;
-  animation: bounce 1.2s infinite 0s;
-}
-.ball div:nth-child(2) {
-  background-color: rgb(114, 250, 198);
-  animation: bounce 1.2s infinite 0.1s;
-}
-.ball div:nth-child(3) {
-  background-color: rgb(150, 114, 250);
-  animation: bounce 1.2s infinite 0.3s;
-}
-
-@keyframes bounce {
-  50% {
-    transform: translateY(-80px);
-  }
-}
-
-.no-anim {
-  transition: 0s;
+.spacebar.down {
+  box-shadow: 0 1px 1px rgb(68, 68, 68);
 }
 </style>
